@@ -84,7 +84,7 @@ struct gdt_structured gdt_structured[PEACHOS_TOTAL_GDT_SEGMENTS] = {
     {.base = 0x00, .limit = 0x00, .type = 0x00},                    // NULL Segment
     {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},              // Kernel Code Segment
     {.base = 0x00, .limit = 0xffffffff, .type = 0x92},              // Kernel Data Segment
-    {.base = 0x00, .limit = 0xffffffff, .type = 0xf8},              // Userx Code Segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0xf8},              // User Code Segment
     {.base = 0x00, .limit = 0xffffffff, .type = 0xf2},              // User Data Segment
     {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9}    // TSS Segment 
 };
