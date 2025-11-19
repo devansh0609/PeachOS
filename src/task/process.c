@@ -1,7 +1,7 @@
 #include "process.h"
 #include "config.h"
 #include "status.h"
-#include "task.h"
+#include "task/task.h"
 #include "memory/memory.h"
 #include "fs/file.h"
 #include "string/string.h"
@@ -26,7 +26,7 @@ struct process* process_current()
 
 struct process* process_get(int process_id)
 {
-    if(process_id < 0 || process_id > PEACHOS_MAX_PROCESSES)
+    if(process_id < 0 || process_id >= PEACHOS_MAX_PROCESSES)
     {
         return NULL;
     }
@@ -123,7 +123,7 @@ int process_load_for_slot(const char* filename, struct process** process, int pr
 {
     int res = 0;
     struct task* task = 0;
-    struct process* _process = 0;
+    struct process* _process;
     void* program_stack_ptr = 0;
 
     if ( process_get(process_slot) != 0)
@@ -166,6 +166,7 @@ int process_load_for_slot(const char* filename, struct process** process, int pr
     if ( ERROR_I(task) == 0)
     {
         res = ERROR_I(task);
+        goto out;
     }
 
     _process->task = task;

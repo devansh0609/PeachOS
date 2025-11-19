@@ -5,6 +5,8 @@
 #include "memory/heap/kheap.h"
 #include "memory/paging/paging.h"
 #include "memory/memory.h"
+#include "task/task.h"
+#include "task/process.h"
 #include "string/string.h"
 #include "fs/file.h"
 #include "disk/disk.h"
@@ -13,6 +15,7 @@
 #include "gdt/gdt.h"
 #include "task/tss.h"
 #include "config.h"
+#include "status.h"
 uint16_t* video_mem = 0;
 uint16_t terminal_row = 0;
 uint16_t terminal_col = 0;
@@ -113,7 +116,7 @@ void kernel_main()
 
     // Setup the TSS
     memset(&tss, 0x00, sizeof(tss));
-    tss.esp = 0x600000;                     // This is where kernel stack is located
+    tss.esp0 = 0x600000;                     // This is where kernel stack is located
     tss.ss0 = KERNEL_DATA_SELECTOR;
 
     // Load the TSS
@@ -128,24 +131,33 @@ void kernel_main()
     // Enable paging
     enable_paging();
     
-    // Enable the system interrupts
-    enable_interrupts();
+    struct process* process = 0;
+    int res = process_load("0:/blank.bin", &process);
 
-
-    int fd = fopen("0:/hello.txt", "r");
-    if (fd)
+    if(res != PEACHOS_ALL_OK)
     {
-        // print("We opened hello.txt\n");
-        // char buf[14];
-        // fseek(fd, 2, SEEK_SET);
-        // fread(buf, 11, 1, fd);
-        // buf[13] = 0x00;
-        // print(buf);
-        struct file_stat s;
-        fstat(fd, &s);
-        fclose(fd);
-
-        print("Testing\n");
+        panic("Unable to load blank.bin\n");
     }
+
+    task_run_first_ever_task();
+    // Enable the system interrupts
+    // enable_interrupts();
+
+
+    // int fd = fopen("0:/hello.txt", "r");
+    // if (fd)
+    // {
+    //     // print("We opened hello.txt\n");
+    //     // char buf[14];
+    //     // fseek(fd, 2, SEEK_SET);
+    //     // fread(buf, 11, 1, fd);
+    //     // buf[13] = 0x00;
+    //     // print(buf);
+    //     struct file_stat s;
+    //     fstat(fd, &s);
+    //     fclose(fd);
+
+    //     print("Testing\n");
+    // }
     while(1) {}
 }
