@@ -9,6 +9,8 @@
 void kernel_main();
 void print(const char* str);
 void panic(const char* msg);
+void kernel_page();
+void kernel_registers();
 
 // It is going to accept a value and will return a void pointer and a value
 #define ERROR(value) (void*)(value)
