@@ -3,6 +3,11 @@
 #include <stdint.h>
 #include "task.h"
 #include "config.h"
+
+#define PROCESS_FILETYPE_ELF 0
+#define PROCESS_FILETYPE_BINARY 1
+typedef unsigned char PROCESS_FILETYPE;
+
 struct process
 {
     // The process id
@@ -17,12 +22,19 @@ struct process
     // The memory (malloc) allocations of the process
     void* allocations[PEACHOS_MAX_PROGRAM_ALLOCATIONS];
 
+    PROCESS_FILETYPE filetype;
+
     /*
      * To keep it simple we load only binary files (if it would be elf file then structure would be different)
      * for elf or mulitple files we would use Union over here.
      * The physical pointer to the process memory.
     */ 
-    void* ptr;
+    union
+    {
+        void* ptr;
+        struct elf_file* elf_file;
+    };
+    
 
     // The physical pointer to the stack memory.
     void* stack;

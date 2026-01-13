@@ -8,6 +8,7 @@
 #include "memory/paging/paging.h"
 #include "kernel.h"
 #include "memory/heap/kheap.h"
+#include "loader/formats/elfloader.h"
 
 // The current process that is running
 struct process* current_process = 0;
@@ -68,7 +69,8 @@ static int process_load_binary(const char* filename, struct process* process)
         res = -EIO;
         goto out;
     }
-
+    
+    process->filetype = PROCESS_FILETYPE_BINARY;
     process->ptr = program_data_ptr;
     process->size = stat.filesize;
 
@@ -77,11 +79,31 @@ out:
     return res;
 }
 
+static int process_load_elf(const char* filename, struct process* process)
+{
+    int res = 0;
+    struct elf_file* elf_file = 0;
+    res = elf_load(filename, &elf_file);
+    if (ISERR(res))
+    {
+        goto out;
+    }
+    process->filetype = PROCESS_FILETYPE_ELF;
+    process->elf_file = elf_file;
+out:
+    return res;
+}
+
 static int process_load_data(const char* filename, struct process* process)
 {
     int res = 0;
-    // Currently we have only binary files
-    res = process_load_binary(filename, process);
+    res = process_load_elf(filename, process);
+    if (res == -EINFORMAT)
+    {
+        // Currently we have only binary files
+        res = process_load_binary(filename, process);
+    }
+
     return res;
 }
 
@@ -92,14 +114,38 @@ int process_map_binary(struct process* process)
     return res;
 }
 
+static int process_map_elf(struct process* process)
+{
+    int res = 0;
+    struct elf_file* elf_file = process->elf_file;
+    // The virtual base will be need to page aligned. 
+    // The physical base will always be page aligned because how our heap works.
+    res = paging_map_to(process->task->page_directory, paging_align_to_lower_page(elf_virtual_base(elf_file)), elf_phys_base(elf_file), paging_align_address(elf_phys_end(elf_file)), PAGING_IS_PRESENT | PAGING_ACCESS_FROM_ALL | PAGING_IS_WRITEABLE);
+    // PAGING_IS_WRITABLE makes entire elf file writable which is not good thing to do.
+    return res;
+}
+
 int process_map_memory(struct process* process)
 {
     int res = 0;
-    res = process_map_binary(process);
+    switch (process->filetype)
+    {
+        case PROCESS_FILETYPE_ELF:
+            res = process_map_elf(process);
+        break;
+        case PROCESS_FILETYPE_BINARY:
+            res = process_map_binary(process);
+        break;
+
+        default:
+            panic("process map memory: Invalid filetype\n");
+    }
     if (res < 0)
     {
         goto out;
     }
+
+    // Finally map to stack
     paging_map_to(process->task->page_directory, (void*)  PEACHOS_PROGRAM_VIRTUAL_STACK_ADDRESS_END, process->stack, paging_align_address(process->stack + PEACHOS_USER_PROGRAM_STACK_SIZE), PAGING_IS_PRESENT | PAGING_ACCESS_FROM_ALL | PAGING_IS_WRITEABLE);
 out:  
     return res;
