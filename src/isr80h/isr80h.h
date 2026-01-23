@@ -9,6 +9,7 @@ enum SystemCommands
     SYSTEM_COMMAND3_PUTCHAR,
     SYSTEM_COMMAND4_MALLOC,
     SYSTEM_COMMAND5_FREE,
+    SYSTEM_COMMAN6_PROCESS_LOAD_START,
 };
 void isr80h_register_commands();
 

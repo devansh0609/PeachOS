@@ -174,7 +174,7 @@ void kernel_main()
 
     if(res != PEACHOS_ALL_OK)
     {
-        panic("Unable to load blank.elf\n");
+        panic("Unable to load shell.elf\n");
     }
 
     task_run_first_ever_task();
