@@ -9,6 +9,7 @@ global peachos_malloc:function
 global peachos_free:function
 global peachos_putchar:function
 global peachos_process_load_start:function
+global peachos_process_get_arguments:function
 
 ; void print(const char* message)
 print:
@@ -76,6 +77,17 @@ peachos_process_load_start:
     ; When task ends or switches back (somehow) then following code will be executed.
     ; Because the ip is has stored next line of this code.
     ; So we are not actually returning from the interrupt.
+    add esp, 4
+    pop ebp
+    ret
+
+; void peachos_process_get_arguments(struct process_arguments* arguments)
+peachos_process_get_arguments:
+    push ebp
+    mov ebp, esp
+    mov eax, 8 ; Command 8 Get the process arguments
+    push dword[ebp+8] ; Variable Arguments
+    int 0x80
     add esp, 4
     pop ebp
     ret
