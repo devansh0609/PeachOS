@@ -4,9 +4,10 @@
 #include "string.h"
 int main(int argc, char** argv)
 {
-    struct process_arguments arguments;
-    peachos_process_get_arguments(&arguments);
-    printf("%i %s\n", arguments.argc, arguments.argv[0]);
+    for(int i = 0; i < argc; i++)
+    {
+        printf("%s\n", argv[i]);
+    }
     while(1) 
     {
 
