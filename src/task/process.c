@@ -14,6 +14,8 @@ struct process* current_process = 0;
 
 static struct process* processes[PEACHOS_MAX_PROCESSES] = {};
 
+int process_free_process(struct process* process);
+
 static void process_init(struct process* process)
 {
     memset(process, 0, sizeof(struct process));
@@ -126,7 +128,10 @@ int process_terminate_allocations(struct process* process)
     for (int i = 0; i < PEACHOS_MAX_PROGRAM_ALLOCATIONS; i++)
     {
         // For faster execution we can do Kfree over here, no need to change the table, as we are killing the process anyway.
-        process_free(process, process->allocations[i].ptr);
+        if (process->allocations[i].ptr)
+        {
+            process_free(process, process->allocations[i].ptr);
+        }
     }
 
     return 0;
@@ -134,13 +139,19 @@ int process_terminate_allocations(struct process* process)
 
 int process_free_binary_data(struct process* process)
 {
-    kfree(process->ptr);
+    if(process->ptr)
+    {
+        kfree(process->ptr);
+    }
     return 0;
 }
 
 int process_free_elf_data(struct process* process)
 {
-    elf_close(process->elf_file);
+    if (process->elf_file)
+    {
+        elf_close(process->elf_file);
+    }
     return 0;
 }
 
@@ -187,27 +198,41 @@ static void process_unlink(struct process* process)
     }
 }
 
-int process_terminate(struct process* process)
+int process_free_process(struct process* process)
 {
     int res = 0;
+    process_terminate_allocations(process);
+    process_free_program_data(process);
 
-    res = process_terminate_allocations(process);
-    if (res < 0)
+    if(process->stack)
     {
-        goto out;
+        // Free the process stack memory.
+        kfree(process->stack);
+        process->stack = NULL;
     }
-
-    res = process_free_program_data(process);
-    if (res < 0)
-    {
-        goto out;
-    }
-    // Free the process stack memory.
-    kfree(process->stack);
     // Free the task
-    task_free(process->task);
+    if (process->task)
+    {
+        task_free(process->task);   
+        process->task = NULL;
+    }
+
+    kfree(process);
+
+out:
+    return res;
+}
+
+int process_terminate(struct process* process)
+{
     // Unlink the process from the array.
     process_unlink(process);
+
+    int res = process_free_process(process);
+    if (res < 0)
+    {
+        goto out;
+    }
 
 out:
     return res;
@@ -302,6 +327,7 @@ void process_free(struct process* process, void* ptr)
 static int process_load_binary(const char* filename, struct process* process)
 {
     int res = 0;
+        void* program_data_ptr = 0x00;
     int fd = fopen(filename, "r");
     if ( !fd )
     {
@@ -315,7 +341,7 @@ static int process_load_binary(const char* filename, struct process* process)
         goto out;
     }
 
-    void* program_data_ptr = kzalloc(stat.filesize);
+    program_data_ptr = kzalloc(stat.filesize);
 
     if ( !program_data_ptr )
     {
@@ -334,6 +360,13 @@ static int process_load_binary(const char* filename, struct process* process)
     process->size = stat.filesize;
 
 out:
+    if (res < 0)
+    {
+        if (program_data_ptr)
+        {
+            kfree(program_data_ptr);
+        }
+    }
     fclose(fd);
     return res;
 }
@@ -469,9 +502,7 @@ int process_load_switch(const char* filename, struct process** process)
 int process_load_for_slot(const char* filename, struct process** process, int process_slot)
 {
     int res = 0;
-    struct task* task = 0;
     struct process* _process;
-    void* program_stack_ptr = 0;
 
     if ( process_get(process_slot) != 0)
     {
@@ -497,26 +528,26 @@ int process_load_for_slot(const char* filename, struct process** process, int pr
         goto out;
     }
 
-    program_stack_ptr = kzalloc(PEACHOS_USER_PROGRAM_STACK_SIZE);
-    if ( !program_stack_ptr )
+    _process->stack = kzalloc(PEACHOS_USER_PROGRAM_STACK_SIZE);
+    if ( !_process->stack )
     {
         res = -ENOMEM;
         goto out;
     }
 
     strncpy(_process->filename, filename, sizeof(_process->filename));
-    _process->stack = program_stack_ptr;
     _process->id = process_slot;
 
     // Create a task
-    task = task_new(_process);
-    if ( ERROR_I(task) == 0)
+    _process->task = task_new(_process);
+    if ( ERROR_I(_process->task) == 0)
     {
-        res = ERROR_I(task);
+        res = ERROR_I(_process->task);
+
+        // Task is NULL due to error code being returned in task new.
+        _process->task = NULL;
         goto out;
     }
-
-    _process->task = task;
 
     // Process must be loaded before calling this function.
     res = process_map_memory(_process);
@@ -533,9 +564,11 @@ int process_load_for_slot(const char* filename, struct process** process, int pr
 out:
     if ( ISERR(res))
     {
-        if(_process && _process->task)
+        if(_process)
         {
-            task_free(_process->task);
+            process_free_process(_process);
+            _process = NULL;
+            *process = NULL;
         }
 
         // Free the process data

@@ -23,8 +23,7 @@ task_return:
     push dword [ebx + 40]
 
     ; push the flags
-    pushf
-    pop eax         ; pop flags in eax register
+    mov eax, [ebx + 36]
     or eax, 0x200   ; For interrupts which will be called in iret instruction
     push eax
 
@@ -60,7 +59,7 @@ restore_general_purpose_registers:
     mov ecx, [ebx + 20]
     mov eax, [ebx + 24]
     mov ebx, [ebx + 12]
-    pop ebp
+    add esp, 4
     ret
 
 ; void user_registers();
